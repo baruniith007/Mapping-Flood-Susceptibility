@@ -1,0 +1,99 @@
+import pandas as pd
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.inspection import PartialDependenceDisplay, permutation_importance
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import accuracy_score
+
+# Load the dataset
+data = pd.read_csv("/path/data.csv")
+X = data[['DR', 'DD', 'DEM', 'Precip', 'Slope', 'CN']]  # Specify your features
+y = data['label']
+
+# Split the data into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+# Define the model and hyperparameters for GridSearchCV
+param_grid = {
+    'n_estimators': [100, 200, 300],
+    'max_depth': [None, 10, 20, 30],
+    'min_samples_split': [2, 5, 10],
+    'min_samples_leaf': [1, 2, 4]
+}
+
+random_forest = RandomForestClassifier()
+grid_search = GridSearchCV(random_forest, param_grid, cv=5, scoring='accuracy', n_jobs=-1, verbose=1)
+
+# Perform grid search to find the best hyperparameters
+grid_search.fit(X_train, y_train)
+best_rf = grid_search.best_estimator_
+grid_search.best_params_
+
+# Accuracies from ROC_AUC plots & Confusion Matrix
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import (roc_curve, auc, confusion_matrix, precision_score,
+                             recall_score, f1_score, accuracy_score)
+
+y_probs = best_rf.predict_proba(X_test)[:, 1]
+
+# Generate ROC curve values
+fpr, tpr, thresholds = roc_curve(y_test, y_probs)
+roc_auc = auc(fpr, tpr)
+
+# Plot ROC curve
+plt.figure()
+plt.plot(fpr, tpr, color='darkorange', lw=2, label='ROC curve (area = %0.2f)' % roc_auc)
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic')
+plt.legend(loc="lower right")
+plt.show()
+
+# Predict the test data
+y_pred = best_rf.predict(X_test)
+
+# Compute the confusion matrix
+conf_matrix = confusion_matrix(y_test, y_pred)
+
+# Print the confusion matrix
+print("Confusion Matrix:\n", conf_matrix)
+
+# Calculate precision, recall, F1-score, and accuracy
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+accuracy = accuracy_score(y_test, y_pred)
+
+# Display the confusion matrix with seaborn heatmap
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_matrix, annot=True, fmt="d", cmap="Blues", 
+            xticklabels=['Predicted No', 'Predicted Yes'], 
+            yticklabels=['Actual No', 'Actual Yes'])
+plt.title('Confusion Matrix')
+plt.ylabel('True Class')
+plt.xlabel('Predicted Class')
+plt.show()
+
+# Extract TP, TN, FP, FN
+TP = conf_matrix[1, 1]
+TN = conf_matrix[0, 0]
+FP = conf_matrix[0, 1]
+FN = conf_matrix[1, 0]
+
+# Calculate FAR and FPR
+far = FP / (FP + TP)  # False Alarm Ratio
+fpr = FP / (FP + TN)  # False Positive Rate
+
+# Print statistical results
+print(f"Precision: {precision:.2f}")
+print(f"Recall (Sensitivity or TPR): {recall:.2f}")
+print(f"F1 Score: {f1:.2f}")
+print(f"Accuracy: {accuracy:.2f}")
+print(f"POD (Probability of Detection): {recall:.2f}")
+print(f"FAR (False Alarm Ratio): {far:.2f}")
+print(f"False Positive Rate (FPR): {fpr:.2f}")
