@@ -1,0 +1,92 @@
+######## Random Forest Feature Selection ########
+
+# Forward Selection
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from mlxtend.feature_selection import SequentialFeatureSelector as SFS
+
+# Load dataset
+data = pd.read_csv("/path/data.csv")
+
+# Split the data into features and target
+X = data.drop('label', axis=1)
+y = data['label']
+
+# Split the dataset into training and testing sets
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.25, random_state=42)
+
+# Initialize the Random Forest classifier
+rf_classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+
+# Configure the Sequential Feature Selector for forward selection
+sfs = SFS(rf_classifier,
+          k_features='best',  # Adjust this to select up to the maximum number of features
+          forward=True,       # Forward Selection
+          floating=True,
+          scoring='accuracy',
+         # verbose=2,
+          n_jobs =-1,
+          cv=4)
+
+# Fit SFS on the training data
+sfs.fit(X_train, y_train)
+
+# Extract performance metrics
+results = sfs.get_metric_dict()
+
+# Prepare the plot data
+features = []
+scores = []
+
+for i in range(1, len(results)+1):
+    features.append(', '.join(list(results[i]['feature_names'])))
+    scores.append(results[i]['avg_score'])
+
+# Plotting
+plt.figure(figsize=(10, 6))
+plt.plot(features, scores, marker='o')
+plt.title('Performance of Features During Sequential Forward Selection')
+plt.xlabel('Features')
+plt.ylabel('Accuracy')
+plt.xticks(rotation=90)
+plt.grid(True)
+plt.show()
+
+# Backward Elimination
+sfs = SFS(rf_classifier,
+          k_features=1,  # Minimum number of features to select
+          forward=False,  # Backward elimination
+          floating=True,
+          scoring='accuracy',
+          n_jobs=-1,
+          #verbose=2,
+          cv=4)
+
+# Fit SFS on the training data
+sfs.fit(X_train, y_train)
+
+# Get the metric dict from the SFS object
+metric_dict = sfs.get_metric_dict()
+
+# Prepare the data for plotting
+selected_features = []
+accuracy_scores = []
+
+# Start with the full feature set and end with the last one
+for i in sorted(metric_dict.keys(), reverse=True):
+    selected_features.append(', '.join(metric_dict[i]['feature_names']))
+    accuracy_scores.append(metric_dict[i]['avg_score'])
+
+# Plot the accuracies with the corresponding selected features
+plt.figure(figsize=(12, 10))
+plt.plot(selected_features, accuracy_scores, marker='o')
+plt.title('Performance of Features During Sequential Backward Elimination')
+plt.xlabel('Features')
+plt.xticks(rotation=90)
+plt.ylabel('Accuracy')
+plt.tight_layout() 
+plt.grid(True)
+plt.show()
+
