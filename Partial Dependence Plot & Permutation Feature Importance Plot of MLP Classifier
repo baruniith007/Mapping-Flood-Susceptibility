@@ -1,0 +1,34 @@
+# Generate partial dependence plots with histograms for all features
+num_features = X.shape[1]
+cols = 2
+rows = (num_features + cols - 1) // cols
+
+fig, axs = plt.subplots(rows, cols, figsize=(15, rows * 5))
+fig.subplots_adjust(hspace=0.2, wspace=0.25)
+
+for i, feature in enumerate(X.columns):
+    ax = axs[i // cols, i % cols]
+    PartialDependenceDisplay.from_estimator(
+        best_pipeline,
+        X_train,
+        features=[feature],
+        ax=ax,
+        grid_resolution=50
+    )
+    ax.set_title(feature)
+    # Add histogram to each PDP
+    ax_hist = ax.twinx()
+    ax_hist.hist(X_train[feature], bins=30, alpha=0.3, color='grey')
+    ax_hist.set_ylabel("Frequency", color='grey')
+
+plt.suptitle('Partial Dependence Plots for All Features with Tuned MLPClassifier')
+plt.show()
+
+# Permutation feature importance
+result = permutation_importance(best_pipeline, X_test, y_test, n_repeats=10, random_state=42, n_jobs=-1)
+sorted_idx = result.importances_mean.argsort()
+plt.figure(figsize=(10, 6))
+plt.boxplot(result.importances[sorted_idx].T, vert=False, labels=X_test.columns[sorted_idx])
+plt.title('Permutation Feature Importance')
+plt.xlabel('Decrease in Accuracy')
+plt.show()
